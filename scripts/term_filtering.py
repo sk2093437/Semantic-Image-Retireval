@@ -162,9 +162,9 @@ for te in range(len(terms_corel5k)):
 tag_frequency = np.asarray(tag_frequency)
 
 # get the index of infrequent tags in the tag list
-r_infreq_tags = np.where(tag_frequency < 3)[0]
+r_infreq_tags = np.where(tag_frequency < 5)[0]
 # thresholding
-scores_tags_th = np.where(np.asarray(scores_tags) <= 1.2)[0]
+scores_tags_th = np.where(np.asarray(scores_tags) <= 3)[0]
 # integrate low frequency and low scored
 filtered_index = np.union1d(scores_tags_th, r_infreq_tags)
 # get abandaned tags
@@ -255,7 +255,10 @@ toc()
 pool.close()
 pool.join()
 
-utilites.saveVariableToFile(scores_t_similarity, "variables/tag_affinity_matrix.pkl")
+utilites.saveVariableToFile(scores_t_similarity, "Corel5k/tag_affinity_matrix.pkl")
+utilites.saveVariableToFile(terms_corel5k_filtered, "Corel5k/terms_corel5k_filtered.pkl")
+utilites.saveVariableToFile(train_anno_filtered, "Corel5k/train_anno_filtered.pkl")
+
 
 """
 Since similarity between tag1 & tag2 is not the same with tag2 & tag1
@@ -294,7 +297,7 @@ def adjust_and_norm_affinity(affinity_matrix, method='average'):
     return affinity_matrix
 
 # adjust the values of matrix
-tag_affinity_matrix = np.asarray(utilites.loadVariableFromFile("variables/tag_affinity_matrix.pkl"))
+tag_affinity_matrix = np.asarray(utilites.loadVariableFromFile("Corel5k/tag_affinity_matrix.pkl"))
 # we do not want to normalize similarity between the same tag since it make no sense
 # so we set the similarity score as inf for same tag: the diagonal of the affinity matrix
 
@@ -312,10 +315,11 @@ def MinMaxScale(data):
 tag_affinity_matrix_scaled = MinMaxScale(tag_affinity_matrix)
 # adjust values of the affinity matrix
 tag_affinity_matrix_scaled = adjust_and_norm_affinity(tag_affinity_matrix_scaled)
+utilites.saveVariableToFile(tag_affinity_matrix_scaled, "Corel5k/tag_affinity_matrix_scaled.pkl")
 
 """
 Now we got visual similarity of between all tags
-Next we focus on textual similarity between them
+Next we will focus on textual similarity between them
 """
 
 
