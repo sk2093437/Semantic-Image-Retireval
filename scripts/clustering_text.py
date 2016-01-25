@@ -123,8 +123,26 @@ def get_concept_anno():
                 anno[i][cluster_map[j]] = 1
                 print("The words is " + words[j] + ", and the concept is " + str(cluster_map[j]))
 
+    utilites.saveVariableToFile(anno, "Corel5k/train_anno_concept.pkl")
+
     return anno
 
 
+def display_clusters(num_clusters):
+    cluster_ids = utilites.loadVariableFromFile("Corel5k/concepts_ids")
+    words = utilites.loadVariableFromFile("Corel5k/terms_corel5k_filtered.pkl")
+    word_centroid_map = dict(zip(words, cluster_ids))
+    cluster_contents = []
+    # For the first 10 clusters
+    for cluster in range(0, num_clusters):
+        # print the cluster number
+        print("\nCluster %d" % cluster)
+        # Find all of the words for that cluster number, and print them out
+        r_words = []
+        for i in range(0,len(word_centroid_map.values())):
+            if( word_centroid_map.values()[i] == cluster ):
+                r_words.append(word_centroid_map.keys()[i])
 
+        print (r_words)
+        cluster_contents.append(r_words)
 

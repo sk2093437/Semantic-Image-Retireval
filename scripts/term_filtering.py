@@ -13,6 +13,7 @@ from sklearn.metrics import pairwise
 from sklearn.preprocessing import normalize
 import numpy as np
 from multiprocessing import Pool
+from sklearn.decomposition import PCA
 
 
 # train_vectors = loadmat(utilites.getAbsPath('Corel5K/train_vectors_original.mat'))
@@ -52,16 +53,23 @@ def tic():
 Prepare data
 """
 # START TO RUN HERE
-# load datasets after dimensionality reduction
-train_pca_300 = loadmat(utilites.getAbsPath('Corel5K/train_pca_300.mat'))
-test_pca_300 = loadmat(utilites.getAbsPath('Corel5K/test_pca_300.mat'))
+# load datasets
+train_original = loadmat(utilites.getAbsPath('Corel5K/train_vectors_original.mat'))
+test_original = loadmat(utilites.getAbsPath('Corel5K/test_vectors_original.mat'))
+train_original = train_original['train_vectors']
+test_original = test_original['test_vectors']
 
-train_pca_300 = train_pca_300['train_pca_300']
-test_pca_300 = test_pca_300['test_pca_300']
+# apply dimensionality reduction
+"""
+pca = PCA(n_components=300)
+tic()
+train_pca_300 = pca.fit_transform(train_original)
+toc()
+test_pca_300 = pca.transform(test_original)
+"""
 
 # l2 normalize the feature vectors
-train_pca_300_l2norm = normalize(train_pca_300, norm='l2')
-test_pca_300_l2norm = normalize(test_pca_300, norm='l2')
+train_pca_300_l2norm = normalize(train_original, norm='l2')
 train_pca_300_list = [tr.astype('float32') for tr in train_pca_300_l2norm]
 
 # construct a pairwise distance matrix to lookup (affinity matrix)
@@ -162,9 +170,9 @@ for te in range(len(terms_corel5k)):
 tag_frequency = np.asarray(tag_frequency)
 
 # get the index of infrequent tags in the tag list
-r_infreq_tags = np.where(tag_frequency < 5)[0]
+r_infreq_tags = np.where(tag_frequency < 2)[0]
 # thresholding
-scores_tags_th = np.where(np.asarray(scores_tags) <= 3)[0]
+scores_tags_th = np.where(np.asarray(scores_tags) <= 0.001)[0]
 # integrate low frequency and low scored
 filtered_index = np.union1d(scores_tags_th, r_infreq_tags)
 # get abandaned tags
@@ -174,6 +182,8 @@ terms_corel5k_filtered = np.delete(terms_corel5k, filtered_index)
 # remove columns from corresponding annotation matrix 0: row, 1: column
 train_anno_filtered = np.delete(train_anno, list(filtered_index), 1)
 test_anno_filtered = np.delete(test_anno, list(filtered_index), 1)
+
+
 
 """
 Calculate tag similarity in terms of visual appearance

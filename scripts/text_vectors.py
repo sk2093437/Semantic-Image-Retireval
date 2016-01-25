@@ -37,7 +37,7 @@ def getTextVectors():
 
     # Set values for Word2Vec
     num_features = 300  # Use a 300-dimension vector to represent a word
-    min_word_count = 5  # Word appears less than 5 times will be ignored
+    min_word_count = 1  # Word appears less than 5 times will be ignored
     num_workers = 4     # Number of threads to run in parallel
     context = 3        # Sample 5 words as input for each iteration
 
