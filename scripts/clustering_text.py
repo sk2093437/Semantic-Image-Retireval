@@ -34,8 +34,6 @@ def adjust_and_norm_affinity(affinity_matrix, method='average'):
                 affinity_matrix[i][j] = m
                 affinity_matrix[j][i] = m
 
-    # scaled_data = (affinity_matrix - np.min(affinity_matrix)) / \
-                  # (np.max(affinity_matrix) - np.min(affinity_matrix))
     scaled_data = expit(affinity_matrix)
 
     for k in range(len(scaled_data)):
@@ -44,7 +42,7 @@ def adjust_and_norm_affinity(affinity_matrix, method='average'):
     return scaled_data
 
 
-def perform_clustering(alpha=0.12, num_clusters=100):
+def perform_clustering(alpha=0.0, num_clusters=100):
     """
     clustering the tag/terms and return the cluster ids for each tag
     :param alpha: parameter to combine visual and textual similarity matrix
@@ -69,7 +67,7 @@ def perform_clustering(alpha=0.12, num_clusters=100):
     # a cluster number
     words = utilites.loadVariableFromFile("Corel5k/terms_corel5k_filtered.pkl")
     word_centroid_map = dict(zip(words, cluster_ids))
-    utilites.saveVariableToFile(cluster_ids, "Corel5k/concepts_ids")
+    utilites.saveVariableToFile(cluster_ids, "Corel5k/concepts_ids.pkl")
 
     cluster_contents = []
     # For the first 10 clusters
