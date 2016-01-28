@@ -371,8 +371,6 @@ def prep_data(dataset, perc_samples=0.66):
 
     return selected_dataset
 
-n_generated_tree = 0
-
 
 def multi_run_wrapper(args):
     """
@@ -381,11 +379,6 @@ def multi_run_wrapper(args):
     :return: generated tree
     """
     tmp_tree = generate_supervised_tree(*args)
-    global  n_generated_tree
-    utilites.saveVariableToFile(tmp_tree, "Corel5K/forest/tree_" + str(n_generated_tree) + ".pkl")
-    n_generated_tree += 1
-    print(n_generated_tree)
-
     return tmp_tree
 
 
