@@ -5,7 +5,7 @@ some common functions shared by all scripts
 
 import os
 import setup
-import pickle
+import cPickle as pickle
 from nltk.corpus import stopwords
 import re
 
@@ -89,7 +89,7 @@ def saveVariableToFile(variable, path = setup.variable_obj_path):
     :param variable: the variable to be saved, could be any data format
     """
     save_path = getAbsPath(path)
-    f = open(save_path, 'w')
+    f = open(save_path, 'wb')
     pickle.dump(variable, f, 0) # save variable as string stream
     f.close()
     print ("Successfully saved variable to " + save_path + '.')
@@ -101,7 +101,7 @@ def loadVariableFromFile(path = setup.variable_obj_path):
     :return: the load variable
     """
     load_path = getAbsPath(path)
-    f = open(load_path, 'r')
+    f = open(load_path, 'rb')
     var = pickle.load(f) # use pickle to load the variable in file f
     f.close()
     print ("Successfully loaded variable from " + load_path + '.')

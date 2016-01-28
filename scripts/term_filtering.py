@@ -1,4 +1,4 @@
-__author__ = 'TONYSUN'
+
 """
 After we extracted images features of Corel5K using MatConvNet (Matlab Toolbox)
 Since we choose fc7 layer which consists 4096 dimension of features
@@ -11,7 +11,9 @@ import utilites
 from scipy.io import loadmat
 from sklearn.metrics import pairwise
 import numpy as np
-from multiprocessing import Pool
+import multiprocessing
+
+__author__ = 'TONYSUN'
 
 """
 Define a tic toc function similar as Matlab
@@ -137,7 +139,7 @@ def cal_visual_scores(tag, k=300):
 
 # use parallel computing to calculate scores for all tags
 tags = range(len(terms_corel5k))
-pool = Pool(processes=4)
+pool = multiprocessing.Pool(multiprocessing.cpu_count())
 tic()
 scores_tags = pool.map(cal_visual_scores, tags)
 toc()
@@ -249,7 +251,7 @@ def cal_tag_similarity(base_tag, k=300):
 
 # use parallel computing to calculate scores for all tags
 base_tags = range(len(terms_corel5k_filtered))
-pool = Pool(processes=4)
+pool = multiprocessing.Pool(multiprocessing.cpu_count())
 tic()
 scores_t_similarity = pool.map(cal_tag_similarity, base_tags)
 toc()

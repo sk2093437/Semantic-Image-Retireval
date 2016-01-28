@@ -3,7 +3,9 @@ import math
 import numpy as np
 import utilites
 from scipy.io import loadmat
-import copy
+from collections import Counter
+import multiprocessing
+import itertools
 
 __author__ = 'TonySun'
 
@@ -158,23 +160,6 @@ def cal_info_gain(dataset, entropy, thres, fi):
     return entropy - feat_entropy   # return information gain
 
 
-"""
-After we defined every component, we can recursively generate a single tree in random forest
-Initialize Tree
-Stopping criteria: reach max depth, or dataset it pure
-
-for all features f in dataset
-    compute information gain if we split on it
-f_best = best feature split location according to the criteria
-tree = create a decision node that test f_best in the root
-dv (v = 1,2,3) = induced sub datasets from Data based on f_best
-
-for all dv
-    tree = generate_supervised_tree(dv)
-    attach tree to the corresponding branch of tree
-return tree
-"""
-
 def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
     """
     Generate a supervised tree recursively
@@ -184,20 +169,16 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
     :param min_leaf_sample: number of min samples in leaf node, default=4
     :return: single generated tree
     """
-    # select square root of number of features
+    # select square root of number of features, m = 2 * sqrt(allfeature) by default
     n_feats = int(round(math.sqrt(len(dataset.features))))
+    # n_feats = 500
     # partly copy feature index to selected dataset
-    ran_feat_index = np.random.randint(0, len(dataset.features), size=n_feats)
-
-    # make sure the selected features do not contain duplicates
-    while True:
-        if len(set(ran_feat_index)) < n_feats:
-            ran_feat_index = np.random.randint(0, len(dataset.features), size=n_feats)
-        else:
-            break
-
+    np.random.seed()
+    selected_feat_index = np.random.permutation(np.copy(dataset.features))
     # copy selected feature index
-    selected_feat_index = np.copy(dataset.features[ran_feat_index])
+    selected_feat_index = selected_feat_index[0: n_feats]
+    # print(selected_feat_index)
+    # print(dataset.features)
 
     node = TreeNode(parent_node)  # generate a new Node
     if parent_node is None:
@@ -216,6 +197,7 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
             node.label_count = count_labels(dataset.labels)  # save label info (important)
             node.orig_sample_indexes = dataset.orig_sample_indexes
             print(node.__str__())
+            print("All samples here share a same label.")
             return node
         else:
             node.is_leaf = False
@@ -251,7 +233,7 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
                 local_max_gain = local_gain  # save gain and threshold if info gain increases
                 local_split_thres = val
 
-        print("Max gain for feature " + str(feat_index) + " is " + str(local_max_gain))
+        # print("Max gain for feature " + str(feat_index) + " is " + str(local_max_gain))
 
         if local_max_gain > glob_max_gain:
             glob_max_gain = local_max_gain  # save global max info gain
@@ -259,26 +241,34 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
             feat_to_split = feat_index  # save the original feature index to split on
             fi_to_split = fi  # save local feature index
 
-        # after the loop, we know which feature is the best to split on
-        if glob_split_thres is None or feat_value_vector is None:
-            node.is_leaf = True
-            node.num_samples = len(dataset.samples)
-            node.label_count = count_labels(dataset.labels)
-            node.orig_sample_indexes = dataset.orig_sample_indexes
-            print(node.__str__())
-            print("Couldn't find a feature to split on or a split threshold")
-            return node
-
-        elif glob_max_gain <= glob_min_gain or node.height >= max_depth or node.num_samples <= min_leaf_sample:
-            node.is_leaf = True
-            node.num_samples = len(dataset.samples)
-            node.label_count = count_labels(dataset.labels)
-            node.orig_sample_indexes = dataset.orig_sample_indexes
-            print(node.__str__())
-            return node
-
         # end of inner loop
     # end of outer loop
+
+    # after the loop, we know which feature is the best to split on
+    if glob_split_thres is None or feat_to_split is None:
+        node.is_leaf = True
+        node.num_samples = len(dataset.samples)
+        node.label_count = count_labels(dataset.labels)
+        node.orig_sample_indexes = dataset.orig_sample_indexes
+        print(node.__str__())
+        print("Couldn't find a feature to split on or a split threshold")
+        return node
+
+    elif glob_max_gain <= glob_min_gain or node.height >= max_depth or node.num_samples <= min_leaf_sample:
+        node.is_leaf = True
+        node.num_samples = len(dataset.samples)
+        node.label_count = count_labels(dataset.labels)
+        node.orig_sample_indexes = dataset.orig_sample_indexes
+        print(node.__str__())
+        if glob_max_gain <= glob_min_gain:
+            print("No more gain increase here.")
+        elif node.height >= max_depth:
+            print("Tree depth exceeds the limit.")
+        elif node.num_samples <= min_leaf_sample:
+            print("Number of samples on a leaf node is less than the limit.")
+
+        return node
+
 
     # if no leaf node is created, we give values to node's attribute the continue searching
     node.feat_split_index = feat_to_split
@@ -292,12 +282,12 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
     lower_dataset.features = dataset.features  # not that for each split, m features are randomly selected
 
     if feat_to_split is not None:
-        upper_index = np.where(dataset.samples[:, fi_to_split] >= glob_split_thres)
+        upper_index = np.where(dataset.samples[:, feat_to_split] >= glob_split_thres)
         upper_dataset.samples = dataset.samples[upper_index]
         upper_dataset.labels = dataset.labels[upper_index]
         upper_dataset.orig_sample_indexes = dataset.orig_sample_indexes[upper_index]
 
-        lower_index = np.where(dataset.samples[:, fi_to_split] < glob_split_thres)
+        lower_index = np.where(dataset.samples[:, feat_to_split] < glob_split_thres)
         lower_dataset.samples = dataset.samples[lower_index]
         lower_dataset.labels = dataset.labels[lower_index]
         lower_dataset.orig_sample_indexes = dataset.orig_sample_indexes[lower_index]
@@ -327,20 +317,79 @@ def parse_single_tree(sample, node):
             return parse_single_tree(sample, node.lower_child)
 
 
-def disp_tree(node):
+def disp_tree_info(node):
+    """
+    Display all nodes contained in the given tree
+    :param node: root node of a tree
+    :return: nothing
+    """
     print("")
     if node.parent is None:
         print("This is root node.")
-
     node.__str__()
+
     if node.is_leaf == False:
-        disp_tree(node.upper_child)
-        disp_tree(node.lower_child)
-    return ""
+        print("Upper child: ")
+        disp_tree_info(node.upper_child)
+        print("Lower child: ")
+        disp_tree_info(node.lower_child)
+
+    return ''
 
 
+def prep_data(dataset, perc_samples=0.66):
+    """
+    Prepare training data to build random forest
+    :param dataset: original dataset
+    :param perc_samples:  percent of samples for training
+    :return: selected data
+    """
+    # If no seed is provided explicitly, numpy.random will seed itself using an
+    # OS-dependent source of randomness. Usually it will use /dev/urandom on Unix-based
+    # systems (or some Windows equivalent), but if this is not available for some reason
+    # then it will seed itself from the wall clock. Since self-seeding occurs at the time
+    # when a new subprocess forks, it is possible for multiple subprocesses to inherit the
+    # same seed if they forked at the same time, leading to identical random variates being
+    # produced by different subprocesses.
+    #
+    # Calling np.random.seed() within a subprocess forces the thread-local RNG instance to seed
+    # itself again from /dev/urandom or the wall clock, which will (probably) prevent you from
+    # seeing identical output from multiple subprocesses.
 
-def generate_random_forest(dataset, n_trees,  perc_samples=0.66, max_depth=12, max_leaf_sample=4):
+    # we select 66% of data samples by default
+    n_samples = int(round(len(dataset.samples) * perc_samples))
+    selected_dataset = Data()
+
+    np.random.seed()
+    ran_sam_index = np.random.randint(0, len(dataset.samples), size=n_samples)
+
+    # partly copy data to selected dataset
+    selected_dataset.samples = np.copy(dataset.samples[ran_sam_index])
+    selected_dataset.labels = np.copy(dataset.labels[ran_sam_index])
+    selected_dataset.orig_sample_indexes = np.array(ran_sam_index)
+    selected_dataset.features = np.copy(dataset.features)
+
+    return selected_dataset
+
+n_generated_tree = 0
+
+
+def multi_run_wrapper(args):
+    """
+    Running wrapper to cater for python Pool since it only accept one argument
+    :param args: packed arguments
+    :return: generated tree
+    """
+    tmp_tree = generate_supervised_tree(*args)
+    global  n_generated_tree
+    utilites.saveVariableToFile(tmp_tree, "Corel5K/forest/tree_" + str(n_generated_tree) + ".pkl")
+    n_generated_tree += 1
+    print(n_generated_tree)
+
+    return tmp_tree
+
+
+def generate_random_forest(dataset, n_trees, max_depth=12, min_leaf_sample=4):
     """
     Build random forest
     1. Sample N random samples with replacement to create a subset of the data.
@@ -353,40 +402,45 @@ def generate_random_forest(dataset, n_trees,  perc_samples=0.66, max_depth=12, m
             do the same.
        The choice of m is generally 1/2 * sqrt(m), sqrt(m) and 2 * sqrt(m)
     """
-    forest = []
-    # we select 66% of data samples by default
-    n_samples = int(round(len(dataset.samples) * perc_samples))
-    selected_dataset = Data()
 
-    # start to build forest, for each tree, we select samples and features
-    # then build a tree using given dataset
-    for i in range(n_trees):
-        # generate random integers from 0 to last sample as random indexes
-        ran_sam_index = np.random.randint(0, len(dataset.samples), size=n_samples)
+    # use parallel computing to generate trees
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    # provide a group of argument to perform parallel computing
+    result = pool.map(multi_run_wrapper,
+                      itertools.repeat((prep_data(dataset), None, max_depth, min_leaf_sample), n_trees))
+    pool.close()
+    pool.join()
 
-        # partly copy data to selected dataset
-        selected_dataset.samples = np.copy(dataset.samples[ran_sam_index])
-        selected_dataset.labels = np.copy(dataset.labels[ran_sam_index])
-        selected_dataset.orig_sample_indexes = np.array(ran_sam_index)
-        selected_dataset.features = np.copy(dataset.features)
+    # save trees in separate variables
+    utilites.saveVariableToFile(result, "Corel5K/forest.pkl") # save forest in single variable
 
-        tree_tmp = generate_supervised_tree(selected_dataset, None, max_depth, max_leaf_sample)
-        forest.append(tree_tmp)
+    for i in range(len(result)):
+        utilites.saveVariableToFile(result[i], "Corel5K/forest/Tree_" + str(i) + ".pkl")
 
-        utilites.saveVariableToFile(tree_tmp, "Corel5K/forest/tree_" + str(i) + ".pkl")
-
-    utilites.saveVariableToFile(forest, "Corel5K/forest.pkl")
-
-    return forest
+    return result
 
 
+def parse_forest(sample, forest):
+    a_rc = []
+    a_rs = []
+
+    for tree in forest:
+        rc, rs = parse_single_tree(sample, tree)
+        a_rc.append(rc.label_count)
+        a_rs = a_rs + rs
+
+    a_rc = np.asarray(a_rc)
+    sum_a_rc = np.sum(a_rc, axis=0)  # get count in all trees for each concept
+    sum_a_rs = Counter(a_rs)
+
+    return sum_a_rc, sum_a_rs
 
 """
 Test code
 """
 train_original = loadmat(utilites.getAbsPath('Corel5K/train_vectors_original.mat'))
 train_original = train_original['train_vectors']
-train_label = utilites.loadVariableFromFile(utilites.getAbsPath("Corel5k/train_anno_concept.pkl"))
+train_label = utilites.loadVariableFromFile(utilites.getAbsPath("Corel5K/train_anno_concept.pkl"))
 
 # prepare data
 train_data = Data()
@@ -402,9 +456,20 @@ toc()
 
 
 
+# test_original = loadmat(utilites.getAbsPath('Corel5K/test_vectors_original.mat'))
+# test_original = test_original['test_vectors']
+# test_sample = test_original[0]
+# rc, rs = parse_single_tree(test_sample, rand_forest[0])
 
-
-
+# def gen_random_number(high):
+#     np.random.seed()
+#     res = np.random.randint(0,high,1)
+#     return res
+#
+# pool = multiprocessing.Pool(multiprocessing.cpu_count() * 2)
+# result = pool.map(gen_random_number, [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100])
+# pool.close()
+# pool.join()
 
 
 
