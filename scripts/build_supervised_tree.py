@@ -3,7 +3,6 @@ import math
 import numpy as np
 import utilites
 from scipy.io import loadmat
-from collections import Counter
 import multiprocessing
 import itertools
 
@@ -300,43 +299,6 @@ def generate_supervised_tree(dataset, parent_node, max_depth, min_leaf_sample):
     return node  # return the root node when all nodes generated
 
 
-def parse_single_tree(sample, node):
-    """
-    parse an new instance using given tree
-    :param sample: test instance
-    :param node: single tree, root node
-    :return: training sample names related to this instance and their label count
-    """
-    if node.is_leaf:
-        # return sample names and corresponding label count of this node
-        return (node.label_count, node.orig_sample_indexes)
-    else:
-        if sample[node.feat_split_index] >= node.feat_split_value:
-            return parse_single_tree(sample, node.upper_child)
-        else:
-            return parse_single_tree(sample, node.lower_child)
-
-
-def disp_tree_info(node):
-    """
-    Display all nodes contained in the given tree
-    :param node: root node of a tree
-    :return: nothing
-    """
-    print("")
-    if node.parent is None:
-        print("This is root node.")
-    node.__str__()
-
-    if node.is_leaf == False:
-        print("Upper child: ")
-        disp_tree_info(node.upper_child)
-        print("Lower child: ")
-        disp_tree_info(node.lower_child)
-
-    return ''
-
-
 def prep_data(dataset, perc_samples=0.66):
     """
     Prepare training data to build random forest
@@ -413,56 +375,29 @@ def generate_random_forest(dataset, n_trees, max_depth=12, min_leaf_sample=4):
     return result
 
 
-def parse_forest(sample, forest):
-    a_rc = []
-    a_rs = []
-
-    for tree in forest:
-        rc, rs = parse_single_tree(sample, tree)
-        a_rc.append(rc.label_count)
-        a_rs = a_rs + rs
-
-    a_rc = np.asarray(a_rc)
-    sum_a_rc = np.sum(a_rc, axis=0)  # get count in all trees for each concept
-    sum_a_rs = Counter(a_rs)
-
-    return sum_a_rc, sum_a_rs
 
 """
 Test code
 """
-train_original = loadmat(utilites.getAbsPath('Corel5K/train_vectors_original.mat'))
-train_original = train_original['train_vectors']
-train_label = utilites.loadVariableFromFile(utilites.getAbsPath("Corel5K/train_anno_concept.pkl"))
+def generate_forest():
 
-# prepare data
-train_data = Data()
-train_data.samples = train_original
-train_data.labels = train_label
-train_data.orig_sample_indexes = np.array(range(len(train_original)))
-train_data.features = np.array(range(np.shape(train_original)[1]))
+    train_original = loadmat(utilites.getAbsPath('Corel5K/train_vectors_original.mat'))
+    train_original = train_original['train_vectors']
+    train_label = utilites.loadVariableFromFile(utilites.getAbsPath("Corel5K/train_anno_concept.pkl"))
 
-tic()
-rand_forest = generate_random_forest(train_data, 1)
-toc()
+    # prepare data
+    train_data = Data()
+    train_data.samples = train_original
+    train_data.labels = train_label
+    train_data.orig_sample_indexes = np.array(range(len(train_original)))
+    train_data.features = np.array(range(np.shape(train_original)[1]))
 
+    tic()
+    rand_forest = generate_random_forest(train_data, 400)
+    toc()
 
+    return rand_forest
 
-
-# test_original = loadmat(utilites.getAbsPath('Corel5K/test_vectors_original.mat'))
-# test_original = test_original['test_vectors']
-# test_sample = test_original[0]
-# rc, rs = parse_single_tree(test_sample, rand_forest[0])
-
-# def gen_random_number(high):
-#     np.random.seed()
-#     res = np.random.randint(0,high,1)
-#     return res
-#
-# pool = multiprocessing.Pool(multiprocessing.cpu_count() * 2)
-# result = pool.map(gen_random_number, [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100])
-# pool.close()
-# pool.join()
 
 
 
